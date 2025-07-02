@@ -1,29 +1,21 @@
 import streamlit as st
 import google.generativeai as genai
 import json
-import requests # Importamos nossa nova ferramenta
+import requests
 
 # --- FUNÇÃO AUXILIAR PARA RESOLVER URLs ---
 def resolve_redirect_url(url):
-    """
-    Segue um link de redirecionamento (como os do googleusercontent) 
-    e retorna a URL final.
-    """
     try:
-        # Usamos um timeout para não esperar para sempre.
-        # allow_redirects=True é o padrão, mas deixamos explícito.
         response = requests.head(url, allow_redirects=True, timeout=5)
-        # response.url contém o endereço final após todos os redirecionamentos
         return response.url
     except requests.RequestException as e:
-        # Se falhar (link quebrado, timeout, etc.), retorna a URL original.
         print(f"Erro ao resolver a URL {url}: {e}")
         return url
 
 # --- Configuração da Página e Título ---
-st.set_page_config(page_title="Resolvedor.AI Final", page_icon="🏆")
+st.set_page_config(page_title="Resolvedor.AI", page_icon="🏆")
 st.title("🏆 Resolvedor.AI")
-st.caption("Planos de ação com vídeos que funcionam!")
+st.caption("Planos de ação inteligentes com busca de mídia.")
 
 # --- Configuração da API ---
 try:
@@ -40,19 +32,19 @@ with st.form("problem_form"):
         placeholder="Ex: Como fazer o melhor nó de gravata para um casamento?"
     )
     selected_model = 'gemini-1.5-pro'
-
-    submitted = st.form_submit_button("Gerar Plano de Ação Inteligente")
+    submitted = st.form_submit_button("Gerar Plano de Ação")
 
 # --- Lógica Principal ---
 if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
+        # TENTATIVA FINAL DE REFINAMENTO DO PROMPT
         prompt_template = f"""
-            Sua tarefa é criar um plano de ação multimídia detalhado em formato JSON para o problema: "{user_problem}".
-            Para cada passo, analise a complexidade e use sua busca avançada:
-            1. Para vídeos, encontre o tutorial mais relevante no YouTube e forneça a URL.
-            2. Para GIFs, encontre um GIF animado relevante.
+            Sua tarefa é criar um plano de ação multimídia em JSON para o problema: "{user_problem}".
+            Para cada passo, use sua busca avançada. CRITÉRIO MAIS IMPORTANTE: todo conteúdo (vídeo ou GIF) deve ser de uma fonte pública e com alta probabilidade de estar disponível e permitir incorporação.
+            1. Para vídeos, encontre um tutorial relevante no YouTube. A URL deve ser um link direto e público do YouTube.
+            2. Para GIFs, encontre um GIF animado relevante. A URL deve ser um link direto para o arquivo de imagem.
             3. Para texto, forneça uma instrução clara.
             O JSON deve ter a estrutura: {{"title": "...", "difficulty": "...", "estimated_time": "...", "steps": [{{"type": "text|gif|video", "title": "...", "content": "..."}}]}}
             Retorne APENAS o código JSON.
@@ -81,13 +73,15 @@ if submitted:
 
                     elif step_type == "gif":
                         st.image(step_content, use_container_width=True)
+                        # MELHORIA DE UX PARA GIFS
+                        st.caption("Se a imagem não carregar, o conteúdo pode ter sido removido da fonte original.")
 
                     elif step_type == "video":
                         with st.spinner("Verificando e carregando o vídeo..."):
-                            # AQUI ESTÁ A MÁGICA: USAMOS NOSSA NOVA FUNÇÃO
                             final_url = resolve_redirect_url(step_content)
                         st.video(final_url)
-                        st.markdown(f"Link direto: [{final_url}]({final_url})")
+                        # MELHORIA DE UX PARA VÍDEOS
+                        st.info(f"Às vezes, vídeos são privados ou removidos. Se não funcionar, tente o [link direto para o YouTube]({final_url}).")
 
                     st.divider()
 
