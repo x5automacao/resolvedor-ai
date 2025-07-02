@@ -57,7 +57,7 @@ if submitted:
 
         with st.spinner("Criando um plano de ação multimídia... Isso pode levar um momento..."):
             try:
-                model = genai.GenerativeModel('gemini-1.5-pro')
+                model = genai.GenerativeModel('gemini-2.5-Flash')
                 response = model.generate_content(prompt_template)
                 
                 # --- A LINHA DA CORREÇÃO ESTÁ AQUI ---
