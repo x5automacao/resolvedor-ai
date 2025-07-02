@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-import json # Importamos a biblioteca para trabalhar com JSON
+import json
 
 # --- Configuração da Página e Título ---
 st.set_page_config(page_title="Resolvedor.AI v2.0", page_icon="🚀")
@@ -28,7 +28,6 @@ if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
-        # O NOVO "Mega-Prompt" v2.0 que pede uma saída em JSON
         prompt_template = f"""
             Você é o 'Resolvedor.AI', um especialista em criar planos de ação multímidia.
             Um usuário tem o seguinte problema: "{user_problem}"
@@ -43,7 +42,7 @@ if submitted:
             {{
                 "title": "Um título claro e objetivo para o plano",
                 "difficulty": "Fácil, Médio ou Difícil",
-                "estimated_time": "Ex: 20-40 minutos",
+                "estimated_time": "Ex: 20-40 minutes",
                 "steps": [
                     {{
                         "type": "text | gif | video",
@@ -58,11 +57,15 @@ if submitted:
 
         with st.spinner("Criando um plano de ação multimídia... Isso pode levar um momento..."):
             try:
-                model = genai.GenerativeModel('gemini-1.5-flash') # Usando o modelo Pro para tarefas mais complexas
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(prompt_template)
                 
-                # Decodifica a resposta JSON
-                plan = json.loads(response.text)
+                # --- A LINHA DA CORREÇÃO ESTÁ AQUI ---
+                # Remove o Markdown que o modelo 'flash' às vezes adiciona
+                clean_response_text = response.text.strip().replace("```json", "").replace("```", "")
+                
+                # Decodifica a resposta JSON JÁ LIMPA
+                plan = json.loads(clean_response_text)
 
                 # --- Renderização do Plano ---
                 st.subheader(plan.get("title", "Seu Plano de Ação"))
@@ -80,11 +83,9 @@ if submitted:
                         st.info(step_content)
 
                     elif step_type == "gif":
-                        # st.image pode exibir GIFs diretamente da URL
                         st.image(step_content, use_column_width=True)
                         
                     elif step_type == "video":
-                        # st.video funciona perfeitamente com links do YouTube
                         st.video(step_content)
                     
                     st.divider()
@@ -94,6 +95,7 @@ if submitted:
             except json.JSONDecodeError:
                 st.error("Ocorreu um erro ao processar a resposta da IA. A resposta não estava no formato JSON esperado. Por favor, tente novamente.")
                 st.text("Resposta recebida (para depuração):")
-                st.code(response.text) # Mostra o que a IA retornou para ajudar a depurar
+                # Mostra o texto limpo, que é mais útil para depurar o JSON
+                st.code(clean_response_text) 
             except Exception as e:
                 st.error(f"Ocorreu um erro inesperado: {e}")
