@@ -1,27 +1,24 @@
 import streamlit as st
 import google.generativeai as genai
-import json
-from urllib.parse import quote_plus # Para criar links de busca seguros
 
 # --- Configuração da Página e Título ---
-st.set_page_config(page_title="Resolvedor.AI", page_icon="🏆")
-st.title("🏆 Resolvedor.AI")
-st.caption("Seu assistente para planos de ação claros e diretos.")
+st.set_page_config(page_title="Resolvedor.AI", page_icon="🛠️")
+st.title("🛠️ Resolvedor.AI")
+st.caption("Transforme seus problemas em planos de ação.")
 
-# --- Configuração da API ---
+# --- Configuração da API (deve ser a primeira coisa na lógica) ---
 try:
+    # Lê a chave da API dos "Secrets" do Streamlit
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception as e:
+    # Mostra um erro amigável se a chave não for encontrada nos Secrets
     st.error("Ocorreu um erro na configuração da API. O administrador foi notificado.")
+    # Interrompe a execução se a chave não estiver configurada
     st.stop()
 
 # --- Formulário de Entrada do Problema ---
 with st.form("problem_form"):
-    user_problem = st.text_area(
-        "Descreva o problema que você quer resolver:",
-        height=150,
-        placeholder="Ex: Minha pia da cozinha está vazando, como consertar?"
-    )
+    user_problem = st.text_area("Descreva o problema que você quer resolver:", height=150, placeholder="Ex: Como remover mancha de café da minha camisa?")
     submitted = st.form_submit_button("Gerar Plano de Ação")
 
 # --- Lógica Principal ---
@@ -29,65 +26,48 @@ if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
-        prompt_template = f"""
-            Você é o 'Resolvedor.AI', um especialista em criar planos de ação textuais.
-            O problema do usuário é: "{user_problem}"
+        try:
+            # O "Mega-Prompt" - A instrução mestre para a IA
+            prompt_template = f"""
+            Você é o 'Resolvedor.AI', um especialista em criar planos de ação claros, objetivos e fáceis de seguir.
+            Um usuário tem o seguinte problema: "{user_problem}"
 
-            Sua tarefa é criar um plano em JSON com passos claros.
-            Para passos que se beneficiariam de um vídeo, use o tipo "search_link" e, no campo "content", coloque uma frase de busca ideal e específica para o YouTube.
-            Para todos os outros, use o tipo "text".
+            Sua tarefa é gerar um plano de ação em formato Markdown, seguindo estritamente a estrutura abaixo.
+            Seja direto e evite frases desnecessárias. Vá direto ao ponto.
 
-            Estrutura do JSON:
-            {{
-                "title": "Um título claro para o plano",
-                "difficulty": "Fácil, Médio ou Difícil",
-                "estimated_time": "Ex: 20-40 minutos",
-                "steps": [
-                    {{
-                        "type": "text | search_link",
-                        "title": "O título descritivo do passo.",
-                        "content": "O texto da instrução OU a frase de busca para o YouTube."
-                    }}
-                ]
-            }}
-            Retorne APENAS o JSON.
+            ### 📝 Plano de Ação: [Título Criativo e Claro para o Problema]
+
+            **Nível de Dificuldade:** [Avalie como Fácil, Médio ou Difícil]
+            **Tempo Estimado:** [Ex: 15-30 minutos]
+
+            ---
+
+            #### 🛠️ Materiais e Ferramentas Necessárias
+            (Se nenhum material for necessário, escreva "Nenhum material necessário.")
+            - [ ] Item 1
+            - [ ] Item 2
+
+            ---
+
+            #### 📋 Passo a Passo da Solução
+            1.  **Primeiro Passo:** Descrição clara, curta e acionável.
+            2.  **Segundo Passo:** Descrição clara, curta e acionável.
+            3.  **Continue com quantos passos forem necessários...**
+
+            ---
+
+            #### ⚠️ Dicas de Segurança e Erros Comuns
+            - **Cuidado:** [Alerte sobre um erro comum ou algo que o usuário deve evitar].
+            - **Dica Pro:** [Ofereça um truque ou conselho que facilita a tarefa].
             """
 
-        with st.spinner("Construindo seu plano de ação..."):
-            try:
-                # Usando o Flash: Rápido, barato e perfeito para esta tarefa.
+            # Mostra uma mensagem enquanto o plano está sendo gerado
+            with st.spinner("Analisando o problema e montando seu plano de ação..."):
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(prompt_template)
-                clean_response_text = response.text.strip().replace("```json", "").replace("```", "")
-                plan = json.loads(clean_response_text)
+            
+            st.success("Seu plano de ação está pronto!")
+            st.markdown(response.text)
 
-                st.subheader(plan.get("title", "Seu Plano de Ação"))
-                st.write(f"**Dificuldade:** {plan.get('difficulty')} | **Tempo Estimado:** {plan.get('estimated_time')}")
-                st.divider()
-
-                for i, step in enumerate(plan.get("steps", [])):
-                    step_type = step.get("type")
-                    step_title = step.get("title")
-                    step_content = step.get("content")
-
-                    st.markdown(f"**Passo {i+1}: {step_title}**")
-
-                    if step_type == "text":
-                        st.info(step_content)
-
-                    elif step_type == "search_link":
-                        # Codifica o texto de busca para ser usado em uma URL
-                        search_query = quote_plus(step_content)
-                        # <-- AQUI ESTÁ A CORREÇÃO CRÍTICA -->
-                        # Construímos a URL de busca dinâmica, usando a sugestão da IA
-                        youtube_url = f"https://www.youtube.com/watch?v=yuVUcOwjTYc3{search_query}"
-                        
-                        st.markdown(f"Para uma demonstração visual, pode ser útil buscar vídeos sobre este tópico.")
-                        st.link_button(f'🔎 Buscar no YouTube por "{step_content}"', youtube_url)
-
-                    st.divider()
-
-                st.success("Plano de ação concluído!")
-
-            except Exception as e:
-                st.error(f"Ocorreu um erro inesperado. Detalhes: {e}")
+        except Exception as e:
+            st.error(f"Ocorreu um erro ao gerar a resposta. Por favor, tente novamente. Erro: {e}")
