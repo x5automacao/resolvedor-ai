@@ -3,9 +3,9 @@ import google.generativeai as genai
 import json
 
 # --- Configuração da Página e Título ---
-st.set_page_config(page_title="Resolvedor.AI v2.0", page_icon="🚀")
-st.title("🚀 Resolvedor.AI v2.0")
-st.caption("Planos de ação com textos, GIFs e vídeos.")
+st.set_page_config(page_title="Resolvedor.AI Pro", page_icon="🚀")
+st.title("🚀 Resolvedor.AI Pro")
+st.caption("Planos de ação com a máxima qualidade de IA.")
 
 # --- Configuração da API ---
 try:
@@ -19,30 +19,34 @@ with st.form("problem_form"):
     user_problem = st.text_area(
         "Descreva o problema que você quer resolver:", 
         height=150, 
-        placeholder="Ex: Como trocar a resistência do chuveiro Lorenzetti?"
+        placeholder="Ex: Como fazer o melhor nó de gravata para um casamento?"
     )
-    submitted = st.form_submit_button("Gerar Plano de Ação Multimídia")
+    # AQUI ESTÁ A MUDANÇA PRINCIPAL: VOLTAMOS PARA O MODELO 'PRO'
+    selected_model = 'gemini-1.5-pro' 
+
+    submitted = st.form_submit_button("Gerar Plano de Ação Inteligente")
 
 # --- Lógica Principal ---
 if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
+        # Prompt otimizado para o modelo Pro
         prompt_template = f"""
             Você é o 'Resolvedor.AI', um especialista em criar planos de ação multímidia.
             Um usuário tem o seguinte problema: "{user_problem}"
 
             Sua tarefa é criar um plano de ação detalhado, retornando a resposta EXCLUSIVAMENTE em formato JSON.
-            Para cada passo da solução, analise a complexidade:
-            1.  Para passos simples e muito visuais (ex: "clique no menu Iniciar"), use o tipo "gif" e encontre na internet uma URL de um GIF animado relevante.
-            2.  Para passos complexos que exigem uma demonstração (ex: "soldar um fio"), use o tipo "video" e encontre no YouTube o melhor vídeo tutorial, fornecendo a URL. Tente encontrar um link com timestamp (ex: &t=123s) se o vídeo for longo.
+            Para cada passo da solução, analise a complexidade e use sua capacidade de busca avançada:
+            1.  Para passos simples e muito visuais (ex: "clique no menu Iniciar"), use o tipo "gif". Encontre na internet uma URL de um GIF animado que seja PÚBLICA e FUNCIONAL.
+            2.  Para passos complexos que exigem uma demonstração (ex: "soldar um fio"), use o tipo "video". Encontre no YouTube o melhor e mais relevante vídeo tutorial. A URL deve ser VÁLIDA, PÚBLICA e FUNCIONAL. Não invente URLs.
             3.  Para passos conceituais ou textuais, use o tipo "text".
 
             O JSON deve seguir esta estrutura exata:
             {{
                 "title": "Um título claro e objetivo para o plano",
                 "difficulty": "Fácil, Médio ou Difícil",
-                "estimated_time": "Ex: 20-40 minutes",
+                "estimated_time": "Ex: 10-20 minutos",
                 "steps": [
                     {{
                         "type": "text | gif | video",
@@ -55,16 +59,13 @@ if submitted:
             Retorne APENAS o código JSON, sem nenhum outro texto antes ou depois.
             """
 
-        with st.spinner("Criando um plano de ação multimídia... Isso pode levar um momento..."):
+        with st.spinner(f"Consultando o modelo {selected_model}... Isso pode ser um pouco mais lento, mas o resultado será melhor..."):
             try:
-                model = genai.GenerativeModel('gemini-1.5-pro')
+                model = genai.GenerativeModel(selected_model)
                 response = model.generate_content(prompt_template)
                 
-                # --- A LINHA DA CORREÇÃO ESTÁ AQUI ---
-                # Remove o Markdown que o modelo 'flash' às vezes adiciona
                 clean_response_text = response.text.strip().replace("```json", "").replace("```", "")
                 
-                # Decodifica a resposta JSON JÁ LIMPA
                 plan = json.loads(clean_response_text)
 
                 # --- Renderização do Plano ---
@@ -83,10 +84,11 @@ if submitted:
                         st.info(step_content)
 
                     elif step_type == "gif":
-                        st.image(step_content, use_column_width=True)
+                        st.image(step_content, use_container_width=True)
                         
                     elif step_type == "video":
                         st.video(step_content)
+                        st.markdown(f"Se o vídeo não aparecer, [clique aqui para abrir no YouTube]({step_content})")
                     
                     st.divider()
 
@@ -95,7 +97,6 @@ if submitted:
             except json.JSONDecodeError:
                 st.error("Ocorreu um erro ao processar a resposta da IA. A resposta não estava no formato JSON esperado. Por favor, tente novamente.")
                 st.text("Resposta recebida (para depuração):")
-                # Mostra o texto limpo, que é mais útil para depurar o JSON
                 st.code(clean_response_text) 
             except Exception as e:
                 st.error(f"Ocorreu um erro inesperado: {e}")
