@@ -29,13 +29,12 @@ if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
-        # PROMPT PIVOTADO: Foco no que funciona: texto e links de busca.
         prompt_template = f"""
             Você é o 'Resolvedor.AI', um especialista em criar planos de ação textuais.
             O problema do usuário é: "{user_problem}"
 
             Sua tarefa é criar um plano em JSON com passos claros.
-            Para passos que se beneficiariam de um vídeo, use o tipo "search_link" e, no campo "content", coloque uma frase de busca ideal para o YouTube.
+            Para passos que se beneficiariam de um vídeo, use o tipo "search_link" e, no campo "content", coloque uma frase de busca ideal e específica para o YouTube.
             Para todos os outros, use o tipo "text".
 
             Estrutura do JSON:
@@ -56,7 +55,7 @@ if submitted:
 
         with st.spinner("Construindo seu plano de ação..."):
             try:
-                # Voltamos para o Flash: Rápido, barato e perfeito para esta tarefa.
+                # Usando o Flash: Rápido, barato e perfeito para esta tarefa.
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(prompt_template)
                 clean_response_text = response.text.strip().replace("```json", "").replace("```", "")
@@ -77,11 +76,13 @@ if submitted:
                         st.info(step_content)
 
                     elif step_type == "search_link":
-                        # Criamos a URL de busca do YouTube
+                        # Codifica o texto de busca para ser usado em uma URL
                         search_query = quote_plus(step_content)
-                        youtube_url = f"https://www.youtube.com/watch?v=yuVUcOwjTYc3"
+                        # <-- AQUI ESTÁ A CORREÇÃO CRÍTICA -->
+                        # Construímos a URL de busca dinâmica, usando a sugestão da IA
+                        youtube_url = f"https://www.youtube.com/watch?v=yuVUcOwjTYc3{search_query}"
+                        
                         st.markdown(f"Para uma demonstração visual, pode ser útil buscar vídeos sobre este tópico.")
-                        # st.button não suporta links diretos, então usamos st.link_button
                         st.link_button(f'🔎 Buscar no YouTube por "{step_content}"', youtube_url)
 
                     st.divider()
