@@ -3,8 +3,8 @@ import google.generativeai as genai
 import json
 
 # --- Configuração da Página e Título ---
-st.set_page_config(page_title="Resolvedor.AI Pro", page_icon="🚀")
-st.title("🚀 Resolvedor.AI Pro")
+st.set_page_config(page_title="Resolvedor.AI Pro", page_icon="💡")
+st.title("💡 Resolvedor.AI Pro")
 st.caption("Planos de ação com a máxima qualidade de IA.")
 
 # --- Configuração da API ---
@@ -17,12 +17,11 @@ except Exception as e:
 # --- Formulário de Entrada do Problema ---
 with st.form("problem_form"):
     user_problem = st.text_area(
-        "Descreva o problema que você quer resolver:", 
-        height=150, 
+        "Descreva o problema que você quer resolver:",
+        height=150,
         placeholder="Ex: Como fazer o melhor nó de gravata para um casamento?"
     )
-    # AQUI ESTÁ A MUDANÇA PRINCIPAL: VOLTAMOS PARA O MODELO 'PRO'
-    selected_model = 'gemini-1.5-pro' 
+    selected_model = 'gemini-1.5-pro'
 
     submitted = st.form_submit_button("Gerar Plano de Ação Inteligente")
 
@@ -31,16 +30,19 @@ if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
-        # Prompt otimizado para o modelo Pro
+        # AQUI ESTÁ A GRANDE MUDANÇA: O PROMPT HIPER-ESPECÍFICO
         prompt_template = f"""
             Você é o 'Resolvedor.AI', um especialista em criar planos de ação multímidia.
             Um usuário tem o seguinte problema: "{user_problem}"
 
             Sua tarefa é criar um plano de ação detalhado, retornando a resposta EXCLUSIVAMENTE em formato JSON.
-            Para cada passo da solução, analise a complexidade e use sua capacidade de busca avançada:
-            1.  Para passos simples e muito visuais (ex: "clique no menu Iniciar"), use o tipo "gif". Encontre na internet uma URL de um GIF animado que seja PÚBLICA e FUNCIONAL.
-            2.  Para passos complexos que exigem uma demonstração (ex: "soldar um fio"), use o tipo "video". Encontre no YouTube o melhor e mais relevante vídeo tutorial. A URL deve ser VÁLIDA, PÚBLICA e FUNCIONAL. Não invente URLs.
-            3.  Para passos conceituais ou textuais, use o tipo "text".
+            Para cada passo da solução, use sua capacidade de busca avançada:
+            1.  Para passos que exigem uma demonstração em vídeo, use o tipo "video". Encontre no YouTube o melhor e mais relevante vídeo tutorial.
+                A URL retornada no campo "content" DEVE OBRIGATORIAMENTE estar em um formato público e direto do YouTube.
+                Formatos válidos: `https://www.youtube.com/watch?v=...` ou `https://youtu.be/...`
+                NÃO retorne de forma alguma URLs com 'googleusercontent.com' ou qualquer outro formato de link interno. Se não encontrar um vídeo adequado, retorne um passo do tipo "text" explicando o que fazer.
+            2.  Para passos visuais simples, use o tipo "gif". A URL deve ser pública e terminar em .gif, .webp, etc.
+            3.  Para todos os outros passos, use o tipo "text".
 
             O JSON deve seguir esta estrutura exata:
             {{
@@ -59,13 +61,13 @@ if submitted:
             Retorne APENAS o código JSON, sem nenhum outro texto antes ou depois.
             """
 
-        with st.spinner(f"Consultando o modelo {selected_model}... Isso pode ser um pouco mais lento, mas o resultado será melhor..."):
+        with st.spinner(f"Consultando o modelo {selected_model}... Buscando as melhores mídias..."):
             try:
                 model = genai.GenerativeModel(selected_model)
                 response = model.generate_content(prompt_template)
-                
+
                 clean_response_text = response.text.strip().replace("```json", "").replace("```", "")
-                
+
                 plan = json.loads(clean_response_text)
 
                 # --- Renderização do Plano ---
@@ -85,11 +87,13 @@ if submitted:
 
                     elif step_type == "gif":
                         st.image(step_content, use_container_width=True)
-                        
+
                     elif step_type == "video":
                         st.video(step_content)
+                        # LINHA DE INVESTIGAÇÃO: Vamos mostrar a URL exata que a IA nos deu.
+                        st.code(f"URL recebida da IA: {step_content}", language=None)
                         st.markdown(f"Se o vídeo não aparecer, [clique aqui para abrir no YouTube]({step_content})")
-                    
+
                     st.divider()
 
                 st.success("Plano de ação multimídia concluído!")
@@ -97,6 +101,6 @@ if submitted:
             except json.JSONDecodeError:
                 st.error("Ocorreu um erro ao processar a resposta da IA. A resposta não estava no formato JSON esperado. Por favor, tente novamente.")
                 st.text("Resposta recebida (para depuração):")
-                st.code(clean_response_text) 
+                st.code(clean_response_text)
             except Exception as e:
                 st.error(f"Ocorreu um erro inesperado: {e}")
