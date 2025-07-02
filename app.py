@@ -1,47 +1,32 @@
-Chave API Gemini: 
-AIzaSyDKPaTD_3gh0aoUSgRzQfoLVF06ZyLCzCk
-
 import streamlit as st
 import google.generativeai as genai
-import os
 
-# --- Configuração Inicial ---
-# Use st.secrets para gerenciar a chave da API de forma segura quando for fazer o deploy
-# Por enquanto, vamos pedir para o usuário colar a chave na interface.
-# Para desenvolvimento local, você pode descomentar a linha abaixo e colar sua chave
-# os.environ['GEMINI_API_KEY'] = "SUA_CHAVE_API_AQUI" 
-
+# --- Configuração da Página e Título ---
 st.set_page_config(page_title="Resolvedor.AI", page_icon="🛠️")
-
 st.title("🛠️ Resolvedor.AI")
 st.caption("Transforme seus problemas em planos de ação.")
 
-# --- Entrada da Chave da API e do Problema ---
-# Usando um formulário para agrupar as entradas
-# A chave da API será lida dos "Secrets" do Streamlit, não mais do usuário.
+# --- Configuração da API (deve ser a primeira coisa na lógica) ---
 try:
+    # Lê a chave da API dos "Secrets" do Streamlit
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception as e:
+    # Mostra um erro amigável se a chave não for encontrada nos Secrets
     st.error("Ocorreu um erro na configuração da API. O administrador foi notificado.")
-    # Este erro só aparecerá se você esquecer de configurar o segredo no Streamlit Cloud
+    # Interrompe a execução se a chave não estiver configurada
+    st.stop()
 
+# --- Formulário de Entrada do Problema ---
 with st.form("problem_form"):
-    user_problem = st.text_area("Descreva o problema que você quer resolver:", height=150, placeholder="Ex: Meu notebook windows está muito lento ao iniciar")
+    user_problem = st.text_area("Descreva o problema que você quer resolver:", height=150, placeholder="Ex: Como remover mancha de café da minha camisa?")
     submitted = st.form_submit_button("Gerar Plano de Ação")
 
+# --- Lógica Principal ---
 if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
-        # O resto da lógica para gerar o plano continua aqui...
-        # Certifique-se de que o bloco "try/except" que gera o plano esteja corretamente alinhado aqui dentro.
-    elif not user_problem:
-        st.error("Por favor, descreva o problema que você quer resolver.")
-    else:
         try:
-            # Configura a API com a chave fornecida pelo usuário
-            genai.configure(api_key=api_key_input)
-
             # O "Mega-Prompt" - A instrução mestre para a IA
             prompt_template = f"""
             Você é o 'Resolvedor.AI', um especialista em criar planos de ação claros, objetivos e fáceis de seguir.
@@ -78,12 +63,11 @@ if submitted:
 
             # Mostra uma mensagem enquanto o plano está sendo gerado
             with st.spinner("Analisando o problema e montando seu plano de ação..."):
-                model = genai.GenerativeModel('gemini-1.5-flash') # Modelo rápido e eficiente
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(prompt_template)
             
             st.success("Seu plano de ação está pronto!")
-            # Exibe a resposta formatada em Markdown
             st.markdown(response.text)
 
         except Exception as e:
-            st.error(f"Ocorreu um erro ao se comunicar com a API. Verifique sua chave ou tente novamente. Erro: {e}")
+            st.error(f"Ocorreu um erro ao gerar a resposta. Por favor, tente novamente. Erro: {e}")
