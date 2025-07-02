@@ -58,7 +58,7 @@ if submitted:
 
         with st.spinner("Criando um plano de ação multimídia... Isso pode levar um momento..."):
             try:
-                model = genai.GenerativeModel('gemini-1.5-pro') # Usando o modelo Pro para tarefas mais complexas
+                model = genai.GenerativeModel('gemini-1.5-flash') # Usando o modelo Pro para tarefas mais complexas
                 response = model.generate_content(prompt_template)
                 
                 # Decodifica a resposta JSON
