@@ -1,11 +1,29 @@
 import streamlit as st
 import google.generativeai as genai
 import json
+import requests # Importamos nossa nova ferramenta
+
+# --- FUNÇÃO AUXILIAR PARA RESOLVER URLs ---
+def resolve_redirect_url(url):
+    """
+    Segue um link de redirecionamento (como os do googleusercontent) 
+    e retorna a URL final.
+    """
+    try:
+        # Usamos um timeout para não esperar para sempre.
+        # allow_redirects=True é o padrão, mas deixamos explícito.
+        response = requests.head(url, allow_redirects=True, timeout=5)
+        # response.url contém o endereço final após todos os redirecionamentos
+        return response.url
+    except requests.RequestException as e:
+        # Se falhar (link quebrado, timeout, etc.), retorna a URL original.
+        print(f"Erro ao resolver a URL {url}: {e}")
+        return url
 
 # --- Configuração da Página e Título ---
-st.set_page_config(page_title="Resolvedor.AI Pro", page_icon="💡")
-st.title("💡 Resolvedor.AI Pro")
-st.caption("Planos de ação com a máxima qualidade de IA.")
+st.set_page_config(page_title="Resolvedor.AI Final", page_icon="🏆")
+st.title("🏆 Resolvedor.AI")
+st.caption("Planos de ação com vídeos que funcionam!")
 
 # --- Configuração da API ---
 try:
@@ -30,47 +48,23 @@ if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
-        # AQUI ESTÁ A GRANDE MUDANÇA: O PROMPT HIPER-ESPECÍFICO
         prompt_template = f"""
-            Você é o 'Resolvedor.AI', um especialista em criar planos de ação multímidia.
-            Um usuário tem o seguinte problema: "{user_problem}"
-
-            Sua tarefa é criar um plano de ação detalhado, retornando a resposta EXCLUSIVAMENTE em formato JSON.
-            Para cada passo da solução, use sua capacidade de busca avançada:
-            1.  Para passos que exigem uma demonstração em vídeo, use o tipo "video". Encontre no YouTube o melhor e mais relevante vídeo tutorial.
-                A URL retornada no campo "content" DEVE OBRIGATORIAMENTE estar em um formato público e direto do YouTube.
-                Formatos válidos: `https://www.youtube.com/watch?v=...` ou `https://youtu.be/...`
-                NÃO retorne de forma alguma URLs com 'googleusercontent.com' ou qualquer outro formato de link interno. Se não encontrar um vídeo adequado, retorne um passo do tipo "text" explicando o que fazer.
-            2.  Para passos visuais simples, use o tipo "gif". A URL deve ser pública e terminar em .gif, .webp, etc.
-            3.  Para todos os outros passos, use o tipo "text".
-
-            O JSON deve seguir esta estrutura exata:
-            {{
-                "title": "Um título claro e objetivo para o plano",
-                "difficulty": "Fácil, Médio ou Difícil",
-                "estimated_time": "Ex: 10-20 minutos",
-                "steps": [
-                    {{
-                        "type": "text | gif | video",
-                        "title": "O título descritivo do passo.",
-                        "content": "A URL do gif, a URL do vídeo do YouTube ou o texto da instrução."
-                    }}
-                ]
-            }}
-
-            Retorne APENAS o código JSON, sem nenhum outro texto antes ou depois.
+            Sua tarefa é criar um plano de ação multimídia detalhado em formato JSON para o problema: "{user_problem}".
+            Para cada passo, analise a complexidade e use sua busca avançada:
+            1. Para vídeos, encontre o tutorial mais relevante no YouTube e forneça a URL.
+            2. Para GIFs, encontre um GIF animado relevante.
+            3. Para texto, forneça uma instrução clara.
+            O JSON deve ter a estrutura: {{"title": "...", "difficulty": "...", "estimated_time": "...", "steps": [{{"type": "text|gif|video", "title": "...", "content": "..."}}]}}
+            Retorne APENAS o código JSON.
             """
 
-        with st.spinner(f"Consultando o modelo {selected_model}... Buscando as melhores mídias..."):
+        with st.spinner(f"Consultando o modelo {selected_model}..."):
             try:
                 model = genai.GenerativeModel(selected_model)
                 response = model.generate_content(prompt_template)
-
                 clean_response_text = response.text.strip().replace("```json", "").replace("```", "")
-
                 plan = json.loads(clean_response_text)
 
-                # --- Renderização do Plano ---
                 st.subheader(plan.get("title", "Seu Plano de Ação"))
                 st.write(f"**Dificuldade:** {plan.get('difficulty')} | **Tempo Estimado:** {plan.get('estimated_time')}")
                 st.divider()
@@ -89,18 +83,15 @@ if submitted:
                         st.image(step_content, use_container_width=True)
 
                     elif step_type == "video":
-                        st.video(step_content)
-                        # LINHA DE INVESTIGAÇÃO: Vamos mostrar a URL exata que a IA nos deu.
-                        st.code(f"URL recebida da IA: {step_content}", language=None)
-                        st.markdown(f"Se o vídeo não aparecer, [clique aqui para abrir no YouTube]({step_content})")
+                        with st.spinner("Verificando e carregando o vídeo..."):
+                            # AQUI ESTÁ A MÁGICA: USAMOS NOSSA NOVA FUNÇÃO
+                            final_url = resolve_redirect_url(step_content)
+                        st.video(final_url)
+                        st.markdown(f"Link direto: [{final_url}]({final_url})")
 
                     st.divider()
 
                 st.success("Plano de ação multimídia concluído!")
 
-            except json.JSONDecodeError:
-                st.error("Ocorreu um erro ao processar a resposta da IA. A resposta não estava no formato JSON esperado. Por favor, tente novamente.")
-                st.text("Resposta recebida (para depuração):")
-                st.code(clean_response_text)
             except Exception as e:
-                st.error(f"Ocorreu um erro inesperado: {e}")
+                st.error(f"Ocorreu um erro inesperado durante a execução. Detalhes: {e}")
