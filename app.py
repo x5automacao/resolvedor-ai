@@ -1,21 +1,12 @@
 import streamlit as st
 import google.generativeai as genai
 import json
-import requests
-
-# --- FUNÇÃO AUXILIAR PARA RESOLVER URLs ---
-def resolve_redirect_url(url):
-    try:
-        response = requests.head(url, allow_redirects=True, timeout=5)
-        return response.url
-    except requests.RequestException as e:
-        print(f"Erro ao resolver a URL {url}: {e}")
-        return url
+from urllib.parse import quote_plus # Para criar links de busca seguros
 
 # --- Configuração da Página e Título ---
 st.set_page_config(page_title="Resolvedor.AI", page_icon="🏆")
 st.title("🏆 Resolvedor.AI")
-st.caption("Planos de ação inteligentes com busca de mídia.")
+st.caption("Seu assistente para planos de ação claros e diretos.")
 
 # --- Configuração da API ---
 try:
@@ -29,9 +20,8 @@ with st.form("problem_form"):
     user_problem = st.text_area(
         "Descreva o problema que você quer resolver:",
         height=150,
-        placeholder="Ex: Como fazer o melhor nó de gravata para um casamento?"
+        placeholder="Ex: Minha pia da cozinha está vazando, como consertar?"
     )
-    selected_model = 'gemini-1.5-pro'
     submitted = st.form_submit_button("Gerar Plano de Ação")
 
 # --- Lógica Principal ---
@@ -39,20 +29,35 @@ if submitted:
     if not user_problem:
         st.error("Por favor, descreva o problema que você quer resolver.")
     else:
-        # TENTATIVA FINAL DE REFINAMENTO DO PROMPT
+        # PROMPT PIVOTADO: Foco no que funciona: texto e links de busca.
         prompt_template = f"""
-            Sua tarefa é criar um plano de ação multimídia em JSON para o problema: "{user_problem}".
-            Para cada passo, use sua busca avançada. CRITÉRIO MAIS IMPORTANTE: todo conteúdo (vídeo ou GIF) deve ser de uma fonte pública e com alta probabilidade de estar disponível e permitir incorporação.
-            1. Para vídeos, encontre um tutorial relevante no YouTube. A URL deve ser um link direto e público do YouTube.
-            2. Para GIFs, encontre um GIF animado relevante. A URL deve ser um link direto para o arquivo de imagem.
-            3. Para texto, forneça uma instrução clara.
-            O JSON deve ter a estrutura: {{"title": "...", "difficulty": "...", "estimated_time": "...", "steps": [{{"type": "text|gif|video", "title": "...", "content": "..."}}]}}
-            Retorne APENAS o código JSON.
+            Você é o 'Resolvedor.AI', um especialista em criar planos de ação textuais.
+            O problema do usuário é: "{user_problem}"
+
+            Sua tarefa é criar um plano em JSON com passos claros.
+            Para passos que se beneficiariam de um vídeo, use o tipo "search_link" e, no campo "content", coloque uma frase de busca ideal para o YouTube.
+            Para todos os outros, use o tipo "text".
+
+            Estrutura do JSON:
+            {{
+                "title": "Um título claro para o plano",
+                "difficulty": "Fácil, Médio ou Difícil",
+                "estimated_time": "Ex: 20-40 minutos",
+                "steps": [
+                    {{
+                        "type": "text | search_link",
+                        "title": "O título descritivo do passo.",
+                        "content": "O texto da instrução OU a frase de busca para o YouTube."
+                    }}
+                ]
+            }}
+            Retorne APENAS o JSON.
             """
 
-        with st.spinner(f"Consultando o modelo {selected_model}..."):
+        with st.spinner("Construindo seu plano de ação..."):
             try:
-                model = genai.GenerativeModel(selected_model)
+                # Voltamos para o Flash: Rápido, barato e perfeito para esta tarefa.
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(prompt_template)
                 clean_response_text = response.text.strip().replace("```json", "").replace("```", "")
                 plan = json.loads(clean_response_text)
@@ -71,21 +76,17 @@ if submitted:
                     if step_type == "text":
                         st.info(step_content)
 
-                    elif step_type == "gif":
-                        st.image(step_content, use_container_width=True)
-                        # MELHORIA DE UX PARA GIFS
-                        st.caption("Se a imagem não carregar, o conteúdo pode ter sido removido da fonte original.")
-
-                    elif step_type == "video":
-                        with st.spinner("Verificando e carregando o vídeo..."):
-                            final_url = resolve_redirect_url(step_content)
-                        st.video(final_url)
-                        # MELHORIA DE UX PARA VÍDEOS
-                        st.info(f"Às vezes, vídeos são privados ou removidos. Se não funcionar, tente o [link direto para o YouTube]({final_url}).")
+                    elif step_type == "search_link":
+                        # Criamos a URL de busca do YouTube
+                        search_query = quote_plus(step_content)
+                        youtube_url = f"https://www.youtube.com/watch?v=yuVUcOwjTYc3"
+                        st.markdown(f"Para uma demonstração visual, pode ser útil buscar vídeos sobre este tópico.")
+                        # st.button não suporta links diretos, então usamos st.link_button
+                        st.link_button(f'🔎 Buscar no YouTube por "{step_content}"', youtube_url)
 
                     st.divider()
 
-                st.success("Plano de ação multimídia concluído!")
+                st.success("Plano de ação concluído!")
 
             except Exception as e:
-                st.error(f"Ocorreu um erro inesperado durante a execução. Detalhes: {e}")
+                st.error(f"Ocorreu um erro inesperado. Detalhes: {e}")
